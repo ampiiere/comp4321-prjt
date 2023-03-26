@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup
 from sqlitedict import SqliteDict
 import requests
 from nltk.tokenize import WhitespaceTokenizer
-from queue import Queue
+import queue
 import re
 from dateutil import parser
 from datetime import datetime
@@ -10,8 +10,9 @@ import string
 from porter import porter
 from urllib.parse import urljoin
 
+
 ORIGIN_URL = "http://www.cse.ust.hk"
-MAX_PAGE = 1
+MAX_PAGE = 30
 
 parentID_childID = dict() # {parentID: [childID,c2]}
 pageID_url = dict() # {pageID: url}
@@ -22,8 +23,22 @@ wordID_word = dict() # {wordID: word}
 word_wordID = dict()
 pageID_elem = dict() # {pageID: [title, mod date, size]}
 
-q = Queue()
+q = queue.Queue()
 stop_words = set([line.rstrip('\n') for line in open('./tools/stopwords.txt')])
+
+def index():
+    crawl(ORIGIN_URL, q)
+    db=SqliteDict("./db/indexdb.sqlite")
+    db['parentID_childID']=parentID_childID
+    db['pageID_url']= pageID_url
+    db['url_pageID'] = url_pageID
+    db['forwardidx'] = forwardidx
+    db['inverseidx'] = inverseidx
+    db['wordID_word'] = wordID_word
+    db['word_wordID'] = word_wordID
+    db['pageID_elem'] = pageID_elem
+    db.commit()
+    db.close()
 
 def preprocess_text(text):
     # tokenize words and obtain their spans
@@ -103,10 +118,16 @@ def crawl(url,q):
     if len(forwardidx) >= MAX_PAGE:
         return 
     
-    response = requests.get(url)
+    try:
+        response = requests.get(url)
+    except:
+        new_url = q.get()
+        crawl(new_url, q)
+
+    print(url)
     headers = response.headers # header file: 
     soup = BeautifulSoup(response.text, 'html.parser')
-
+    
     # find last modified date from header/<head>
     try:
         last_mod = headers['Last-Modified']
@@ -116,7 +137,7 @@ def crawl(url,q):
             last_mod = re.split("last update", cmnt_mod)[1].strip()
         except:
             last_mod = headers['Date']
-    
+     
     last_mod = parser.parse(last_mod).replace(tzinfo=None) # remove consideration for timezone
     
     # if current page is already indexed, and has not been modified since the indexing; skip and move to next in the queue
@@ -126,7 +147,7 @@ def crawl(url,q):
             try: 
                 new_url = q.get()
                 crawl(new_url, q)
-            except Queue.empty:
+            except queue.Empty:
                 return
         else: 
             mod_cleanup(pageID) # if page is alreday indexed but needs updating, clean up old index
@@ -147,131 +168,48 @@ def crawl(url,q):
     except KeyError:
         page_size = len(soup.text.strip())
 
+    try:
+        # Tokenize text
+        page_title = soup.find("title").text
+        page_text = soup.text
+        # page_text = soup.find(id="main-content-region").text
+        
+        body_tokens = preprocess_text(page_text)
+        title_tokens= preprocess_text(page_title)
+        page_tokens = body_tokens + title_tokens
+        
+        # Index words into forward,inverse idx and wordiD_word, word_wordID
+        page_dict = count_word_freq(page_tokens)
+        index_words(page_dict, pageID)
+        
+        
+        # Index into page_elem
+        pageID_elem[pageID] = [page_title, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), page_size] 
 
-    # Tokenize text
-    page_title = soup.find("title").text
-    page_text = soup.text
-    # page_text = soup.find(id="main-content-region").text
-    
-    body_tokens = preprocess_text(page_text)
-    title_tokens= preprocess_text(page_title)
-    page_tokens = body_tokens + title_tokens
-    
-    # Index words into forward,inverse idx and wordiD_word, word_wordID
-    page_dict = count_word_freq(page_tokens)
-    index_words(page_dict, pageID)
-    
-    
-    # Index into page_elem
-    pageID_elem[pageID] = [page_title, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), page_size] 
 
-
-    # Extract all children links
-    child_urls = soup.find_all('a', href=True)
-    child_links = []
+        # Extract all children links
+        child_urls = soup.find_all('a', href=True)
+        child_links = []
+        
+        for link in child_urls:
+            child_links.append(urljoin(url, link.get('href')).rstrip('/'))
+        
+        # Index and queue all children links
+        child_links = list(dict.fromkeys(child_links))
+        indexnq_links(child_links, pageID)
+    except:
+        # page might be empty/require sign in, skip
+        return
     
-    for link in child_urls:
-        child_links.append(urljoin(url, link.get('href')).rstrip('/'))
-     
-    # Index and queue all children links
-    child_links = list(set(child_links))
-    indexnq_links(child_links, pageID)
-     
     try:
         new_url = q.get()
         crawl(new_url, q)
-    except Queue.empty:
+    except queue.Empty:
         return
     
     
-crawl(ORIGIN_URL, q)
-
-db=SqliteDict("./db/indexdb.sqlite")
-db['parentID_childID']=parentID_childID
-db['pageID_url']= pageID_url
-db['url_pageID'] = url_pageID
-db['forwardidx'] = forwardidx
-db['inverseidx'] = inverseidx
-db['wordID_word'] = wordID_word
-db['word_wordID'] = word_wordID
-db['pageID_elem'] = pageID_elem
-db.commit()
-db.close()
-    
-    
-    
-    
-    
-    
-    
-    
-    # url = 'https://hkust.edu.hk/news/internationalization-and-partnership/hkust-and-china-unicom-establish-joint-laboratory-empower'
-    
-    # response = requests.get(url)
-    # headers = response.headers
-    # soup = BeautifulSoup(response.text, 'html.parser')
-    # tokens = preprocess_text(soup.text)
-    
-    # # page id
-    # if url in url_pageID.keys():
-    #     pageID = url_pageID[url]
-    # else:
-    #     pageID = len(url_pageID)
-    #     url_pageID[url] = pageID
-    #     pageID_url[pageID] = url
-    
-    
-    
-    # page_dict = count_word_freq(tokens)
-    # index_words(page_dict, pageID)
-    # print(forwardidx)
-
-    # child_urls = soup.find_all('a', href=True)
-    # child_links = []
-    # for link in child_urls:
-    #     child_links.append(urljoin(url, link.get('href')).rstrip('/'))
-    # child_links = list(set(child_links))
-    # indexnq_links(child_links, pageID)
-    
-    # print(parentID_childID)
-    # for child in parentID_childID[pageID]:
-    #     print(pageID_url[child])
-    
-    # # date
-    # try:
-    #     last_mod = headers['Last-Modified']
-    # except KeyError:
-    #     try:
-    #         cmnt_mod = soup.head.find(string=re.compile("last update"))
-    #         last_mod = re.split("last update", cmnt_mod)[1].strip()
-    #     except:
-    #         last_mod = headers['Date']
-    
-    # last_mod = parser.parse(last_mod).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
-    
-    # #size
-    # try:
-    #     page_size = headers['Content-Length']
-    # except KeyError:
-    #     page_size = len(soup.text.strip())
-    
-    # page_title = soup.find("title").text
-    # pageID_elem[pageID] = [page_title, last_mod, page_size] # it's last mod
-    
-    # print(pageID_elem)
-    
-    # db=SqliteDict("./db/indexdb.sqlite")
-    # db['parentID_childID']=parentID_childID
-    # db['pageID_url']= pageID_url
-    # db['url_pageID'] = url_pageID
-    # db['forwardidx'] = forwardidx
-    # db['inverseidx'] = inverseidx
-    # db['wordID_word'] = wordID_word
-    # db['word_wordID'] = word_wordID
-    # db['pageID_elem'] = pageID_elem
-    # db.commit()
-    # db.close()
-    
+if __name__ == '__main__':
+    index()
     
     
     
