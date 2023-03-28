@@ -2,7 +2,7 @@
 
 #### 1. Setup preferred Virtual env (optional)
 - Packages must be installed, loading them into a virtual env would make it easier to delete them later. 
-- 
+
 #### 1.5 Get pip
 - Mac/Linux: `python get-pip.py`
 - Windows: `py get-pip.py`
