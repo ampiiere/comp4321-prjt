@@ -11,6 +11,7 @@ word_wordID = db['word_wordID']
 pageID_elem= db['pageID_elem']
 
 def db_txt():
+    print("[START] Outputting database results into txt.")
     with open('spider_result.txt', 'w') as f:
         for page_id,words in forwardidx.items():
             elems = pageID_elem[page_id] # title, mod date, size
@@ -19,6 +20,7 @@ def db_txt():
             child_ids = parentID_childID[page_id][:10] # first 10 children link id
             child_links = [pageID_url[c_id] for c_id in child_ids] # get links of child
             
+            # title url mod date size
             f.write(elems[0]+"\n")
             f.write(url+"\n")
             f.write(f"{elems[1]}, {elems[2]}\n")
@@ -35,6 +37,7 @@ def db_txt():
             
             # add seperation line
             f.write("-"*80+"\n")
+    print("[END] Finished outputting txt file. See spider_result.txt!\n")
     
 if __name__ == '__main__':
     db_txt()     

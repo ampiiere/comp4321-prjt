@@ -6,10 +6,9 @@ import queue
 import re
 from dateutil import parser
 from datetime import datetime
-import string
 from porter import porter
 from urllib.parse import urljoin
-
+import urllib3
 
 ORIGIN_URL = "http://www.cse.ust.hk"
 MAX_PAGE = 30
@@ -27,7 +26,12 @@ q = queue.Queue()
 stop_words = set([line.rstrip('\n') for line in open('./tools/stopwords.txt')])
 
 def index():
+    """calls main function, and saves filled dicts() into sqlite database"""
+    
+    print(f"\n[START] Begin crawling, Origin url: {ORIGIN_URL}")
     crawl(ORIGIN_URL, q)
+    print("[END] End crawl, saving to database...")
+
     db=SqliteDict("./db/indexdb.sqlite")
     db['parentID_childID']=parentID_childID
     db['pageID_url']= pageID_url
@@ -39,26 +43,42 @@ def index():
     db['pageID_elem'] = pageID_elem
     db.commit()
     db.close()
+    print("[END] Finished Saving.\n")
 
 def preprocess_text(text):
-    # tokenize words and obtain their spans
-    span_obj = WhitespaceTokenizer().span_tokenize(text)
-    spans = [span for span in span_obj]
-    tokens = WhitespaceTokenizer().tokenize(text)
+    """preprocessing text in page into word tokens 
+
+    Args:
+        text (str): text in page
+
+    Returns:
+        List[str]: List of word tokens
+    """
+    tokens = WhitespaceTokenizer().tokenize(text)  # tokenize words 
     
-    # lower case, remove punctuation, remove numerics, remove stopwords
-    tokens = [word.lower() for word in tokens]
-    tokens = [re.sub(r"[^\s\w\d]", '', c) for c in tokens]
-    tokens = [re.sub(r"\b\d+\b", "", c) for c in tokens]
-    tokens=['' if c in stop_words else c for c in tokens]
+    # span_obj = WhitespaceTokenizer().span_tokenize(text)
+    # spans = [span for span in span_obj]
     
-    tokens=list(filter(None, tokens))
+    tokens = [word.lower() for word in tokens] # lower case
+    tokens = [re.sub(r"[^\s\w\d]", '', c) for c in tokens] # remove punctuation
+    # tokens = [re.sub(r"\b\d+\b", "", c) for c in tokens]
+    tokens=['' if c in stop_words else c for c in tokens] # remove stop words
+    
+    tokens=list(filter(None, tokens)) # remove duplicates
     tokens=[porter(c) for c in tokens] #TODO PORTER
     
     return tokens
 
 
 def count_word_freq(tokenlist):
+    """Count word frequencies
+
+    Args:
+        tokenlist (List[str]): List of word tokens in page
+
+    Returns:
+        dict(): dictionary with (word, word frequency) key value paris
+    """
     page_dict = dict()
     for token in tokenlist:
         if page_dict.get(token):
@@ -70,109 +90,136 @@ def count_word_freq(tokenlist):
 
 
 def index_words(page_dict, pageID):
-    # initialize forwardidx for page
+    """indexing words in page into word_wordID,wordID_word, inverseidx, forwardidx
+
+    Args:
+        page_dict (dict): dict containing (word, word frequency) key value pairs
+        pageID (int_): PageID of page
+    """
     forwardidx[pageID] = []
     for word,freq in page_dict.items():
-        if word not in word_wordID.keys(): # add word to word_wordID and wordID_word if new
+        if word not in word_wordID.keys(): # add word to word_wordID, wordID_word if new
             word_id = len(word_wordID)
             word_wordID[word] = word_id
             wordID_word[word_id] = word
         elif word in word_wordID.keys(): # fetch wordiD from word_wordID if not new
             word_id = word_wordID[word]
         
-        if word_id not in inverseidx.keys(): # add new word_id entry if new
+        if word_id not in inverseidx.keys(): # add new wordid to inverseidx if new
             inverseidx[word_id] = [(pageID, freq)]
-        elif word_id in inverseidx.keys(): # append record to word_id entry if not new
+        elif word_id in inverseidx.keys(): # append record to wordid entry if not new
             inverseidx[word_id].append((pageID, freq))
     
-        # adding word, frequency tuple page's foward index entry
-        forwardidx[pageID].append((word_id,freq))
+        forwardidx[pageID].append((word_id,freq)) # adding (word, frequency) to page's foward index entry
 
 def indexnq_links(child_links, pageID):
+    """index links in parentID_childID, url_pageID, pageID_url; then queue child links
+
+    Args:
+        child_links (List): list contianing urls of child links
+        pageID (int): pageID of parent page
+    """
     parentID_childID[pageID] = []
     for child_link in child_links:
-        if child_link not in url_pageID.keys(): # if child link is not indexed
-            child_id = len(url_pageID)  # create new url ID 
-            url_pageID[child_link] = child_id # index new url into url_pageID, pageID_url
+        if child_link not in url_pageID.keys(): # add url to url_pageID, pageID_url if not new
+            child_id = len(url_pageID)  
+            url_pageID[child_link] = child_id 
             pageID_url[child_id] = child_link
-        elif child_link in url_pageID.keys(): # if child link is indexed
-            child_id = url_pageID[child_link] # fetch url id from urlpageID
+        elif child_link in url_pageID.keys(): # fetch urlid if not new
+            child_id = url_pageID[child_link] 
         
-        parentID_childID[pageID].append(child_id)
+        parentID_childID[pageID].append(child_id)  # add childurl id to parentID_childID 
         q.put(child_link) # queue child link
 
 def mod_cleanup(pageID):
-    # remove (pageid, freq) from each word in inverseidx
-    for word in forwardidx[pageID]:
+    """index clean up if page has been modified
+
+    Args:
+        pageID (int): pageID of page needed to clean up
+    """
+    for word in forwardidx[pageID]: # remove (pageid, freq) from each word of page in inverseidx
         word_id = word[0]
         inverseidx[word_id].remove((pageID, word[1]))
        
-    # TODO: Redundant since both index_words and index_links initialize empty []?
-    forwardidx[pageID].clear() # clear out fowardidx of pageID
-    parentID_childID[pageID].clear() # clear out parentID_childID of pageID
+    forwardidx[pageID].clear() 
+    parentID_childID[pageID].clear() 
 
 
-def crawl(url,q):   
+def crawl(url,q):
+    """Main function
+
+    Args:
+        url (str): link of page currently proccessing
+        q (queue obj): queue storing queued links
+
+    Raises:
+        Exception: if page is pdf, skip page.
+        Exception: if request has trouble proccessing page, skip page
+        Exception: if page is too large, skip page. 
+
+    """
     # if num of indexed pages > max pages, job done
-    print(len(forwardidx))
     if len(forwardidx) >= MAX_PAGE:
         return 
-    
     try:
-        response = requests.get(url)
-    except:
-        new_url = q.get()
-        crawl(new_url, q)
-
-    print(url)
-    headers = response.headers # header file: 
-    soup = BeautifulSoup(response.text, 'html.parser')
-    
-    # find last modified date from header/<head>
-    try:
-        last_mod = headers['Last-Modified']
-    except KeyError:
+        if ".pdf" in url:
+            raise Exception(f"[ERROR] {url}: Page is pdf, skipping. ")
+        
         try:
-            cmnt_mod = soup.head.find(string=re.compile("last update"))
-            last_mod = re.split("last update", cmnt_mod)[1].strip()
-        except:
-            last_mod = headers['Date']
-     
-    last_mod = parser.parse(last_mod).replace(tzinfo=None) # remove consideration for timezone
-    
-    # if current page is already indexed, and has not been modified since the indexing; skip and move to next in the queue
-    if url in forwardidx.keys():
-        index_mod = parser.parse(pageID_elem[url_pageID[url]][1]).replace(tzinfo=None)
-        if last_mod <= index_mod:  # if page's last mod is before our index
-            try: 
-                new_url = q.get()
-                crawl(new_url, q)
-            except queue.Empty:
-                return
-        else: 
-            mod_cleanup(pageID) # if page is alreday indexed but needs updating, clean up old index
+            response = requests.get(url)
+        except (requests.exceptions.SSLError, urllib3.exceptions.SSLError):
+            raise Exception(f"[ERROR] {url}: Error loading webpage, skipping. ")
             
-    # Assign pageID
-    # if url is in url_pageID index, get old page_id, else index new url
-    if url in url_pageID.keys():
-        pageID = url_pageID[url]
-    else:
-        pageID = len(url_pageID)
-        url_pageID[url] = pageID
-        pageID_url[pageID] = url
-    
-    
-    # find page size from headers/length of page text
-    try:
-        page_size = headers['Content-Length']
-    except KeyError:
-        page_size = len(soup.text.strip())
+        print(f"[LOG] {len(forwardidx)}: {url}")
+        headers = response.headers # header file
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        if len(soup.text) > 500000:
+            raise Exception(f"[ERROR] {url}: Page too large, skipping.")
+        
+        # find last modified date from header
+        try: 
+            last_mod = headers['Last-Modified']
+        except KeyError:
+            try:
+                cmnt_mod = soup.head.find(string=re.compile("last update"))
+                last_mod = re.split("last update", cmnt_mod)[1].strip()
+            except:
+                last_mod = headers['Date']
+        
+        last_mod = parser.parse(last_mod).replace(tzinfo=None) # remove consideration for timezone
+        
+        # if current page is already indexed, and has not been modified since the indexing; skip and move to next in the queue
+        if url in forwardidx.keys():
+            index_mod = parser.parse(pageID_elem[url_pageID[url]][1]).replace(tzinfo=None)
+            if last_mod <= index_mod:  
+                try: 
+                    new_url = q.get()
+                    crawl(new_url, q)
+                except queue.Empty:
+                    return
+            else: 
+                mod_cleanup(pageID) # if page is alreday indexed but needs updating, clean up old index
+                
+        # Assign pageID
+        # if url is in url_pageID index, get old page_id, else index new url
+        if url in url_pageID.keys():
+            pageID = url_pageID[url]
+        else:
+            pageID = len(url_pageID)
+            url_pageID[url] = pageID
+            pageID_url[pageID] = url
+        
+        
+        # find page size from headers/length of page text
+        try:
+            page_size = headers['Content-Length']
+        except KeyError:
+            page_size = len(soup.text.strip())
 
-    try:
         # Tokenize text
         page_title = soup.find("title").text
         page_text = soup.text
-        # page_text = soup.find(id="main-content-region").text
         
         body_tokens = preprocess_text(page_text)
         title_tokens= preprocess_text(page_title)
@@ -182,10 +229,8 @@ def crawl(url,q):
         page_dict = count_word_freq(page_tokens)
         index_words(page_dict, pageID)
         
-        
-        # Index into page_elem
+        # Index page into page_elem
         pageID_elem[pageID] = [page_title, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), page_size] 
-
 
         # Extract all children links
         child_urls = soup.find_all('a', href=True)
@@ -194,16 +239,24 @@ def crawl(url,q):
         for link in child_urls:
             child_links.append(urljoin(url, link.get('href')).rstrip('/'))
         
-        # Index and queue all children links
-        child_links = list(dict.fromkeys(child_links))
+        # Index and queue all children links 
+        child_links = list(dict.fromkeys(child_links)) # remove duplicates
         indexnq_links(child_links, pageID)
-    except:
-        # page might be empty/require sign in, skip
-        return
     
+    except Exception as e:
+        print(e)
+        try:
+            new_url = q.get()
+            crawl(new_url, q)
+            return
+        except queue.Empty:
+            return 
+    
+    # fetch new url from queue, and start new recursion loop with new url
     try:
         new_url = q.get()
         crawl(new_url, q)
+        return
     except queue.Empty:
         return
     
