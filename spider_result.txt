@@ -1,6 +1,6 @@
 Department of Computer Science and Engineering - HKUST
-http://www.cse.ust.hk
-2023-03-29 04:19:29, 7358
+http://www.cse.ust.hk/
+2023-03-29 07:48:11, 7380
 department 3; computer 3; science 5; engineering 7; hkust 12; university 3; news 7; academic 1; departments 1; az 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -15,7 +15,7 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 News | The Hong Kong University of Science and Technology
 https://hkust.edu.hk/news
-2023-03-29 04:19:23, 15631
+2022-03-23 16:25:57, 15672
 news 14; hong 10; kong 9; university 12; science 16; technology 10; skip 1; main 1; content 2; announcements 4; 
 https://hkust.edu.hk/news#main-content
 https://hkust.edu.hk/news/announcements
@@ -30,7 +30,7 @@ https://hkust.edu.hk/visit
 --------------------------------------------------------------------------------
 Academic Departments | The Hong Kong University of Science and Technology
 https://hkust.edu.hk/academics/list
-2023-03-29 04:19:23, 16553
+2022-03-23 16:25:57, 16551
 academic 11; departments 9; hong 14; kong 14; university 4; science 34; technology 20; skip 1; main 1; content 2; 
 https://hkust.edu.hk/academics/list#main-content
 https://hkust.edu.hk/news/announcements
@@ -45,7 +45,7 @@ https://hkust.edu.hk/visit
 --------------------------------------------------------------------------------
 Best Study Abroad Programs|Vibrant Study Experience in Hong Kong||HKUST
 https://hkust.edu.hk/lifehkust
-2023-03-29 04:19:24, 17893
+2022-03-23 16:25:57, 17894
 study 63; abroad 27; programsvibrant 3; experience 8; hong 69; konghkust 4; skip 1; main 2; content 2; lifehkust 5; 
 https://hkust.edu.hk/lifehkust#main-content
 https://hkust.edu.hk/news/announcements
@@ -60,7 +60,7 @@ https://hkust.edu.hk/visit
 --------------------------------------------------------------------------------
 HKUST Library
 https://library.hkust.edu.hk
-2023-03-29 04:19:24, 14327
+2023-03-29 07:48:14, 14331
 hkust 18; library 28; skip 1; content 2; university 7; news 5; academic 2; departments 2; az 2; lifehkust 2; 
 javascript:void(0);
 https://hkust.edu.hk/news
@@ -75,7 +75,7 @@ https://www.ust.hk
 --------------------------------------------------------------------------------
 Visit | The Hong Kong University of Science and Technology
 https://hkust.edu.hk/visit
-2023-03-29 04:19:25, 14706
+2022-03-23 16:25:57, 14700
 visit 7; hong 10; kong 9; university 11; science 12; technology 5; skip 1; main 3; content 2; announcements 1; 
 https://hkust.edu.hk/visit#main-content
 https://hkust.edu.hk/news/announcements
@@ -88,9 +88,24 @@ https://shaw-auditorium.hkust.edu.hk
 https://calendar.ust.hk
 https://giving.hkust.edu.hk/en/index.php
 --------------------------------------------------------------------------------
+Home | CAREERS AT HKUST
+https://hkustcareers.hkust.edu.hk
+2023-03-29 07:48:16, 5039
+home 3; careers 6; hkust 29; skip 1; main 1; content 1; university 12; news 1; academic 3; departments 1; 
+https://hkustcareers.hkust.edu.hk#main-content
+https://www.ust.hk/news
+https://www.ust.hk/academics/list
+https://www.ust.hk/lifehkust
+http://library.ust.hk
+https://www.ust.hk/map-directions
+https://hkustcareers.ust.hk
+https://facultyprofiles.ust.hk
+https://www.ust.hk/about
+https://hkustcareers.hkust.edu.hk/How-to-Apply
+--------------------------------------------------------------------------------
 Faculty Profiles | The Hong Kong University of Science and Technology
 https://facultyprofiles.hkust.edu.hk
-2023-03-29 04:19:25, 3392
+2023-03-29 07:48:16, 3392
 faculty 3; profiles 3; hong 4; kong 4; university 5; science 4; technology 4; hkust 3; news 1; academic 1; 
 https://www.ust.hk/news
 https://www.ust.hk/academics/list
@@ -105,7 +120,7 @@ https://hkust-gz.edu.cn
 --------------------------------------------------------------------------------
 QS Top 10 Universities in China by subject|HKUST
 https://hkust.edu.hk/about
-2023-03-29 04:19:26, 23169
+2022-03-23 16:25:57, 23170
 qs 13; top 21; 10 17; universities 29; china 21; subjecthkust 2; skip 1; main 1; content 2; announcements 1; 
 https://hkust.edu.hk/about#main-content
 https://hkust.edu.hk/news/announcements
@@ -120,7 +135,7 @@ https://hkust.edu.hk/visit
 --------------------------------------------------------------------------------
 CSE Intranet | HKUST CSE
 http://www.cse.ust.hk/admin/intranet
-2023-03-29 04:19:27, 2120
+2023-03-29 07:48:17, 2141
 cse 9; intranet 7; hkust 9; university 3; news 3; academic 1; departments 1; az 1; lifehkust 1; library 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -135,7 +150,7 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 HKUST ENGINEERING | HKUST School of Engineering
 https://seng.hkust.edu.hk
-2023-03-29 04:19:27, 21702
+2023-03-28 08:06:37, 21751
 hkust 38; engineering 44; school 4; skip 1; main 1; content 1; university 7; news 7; academic 1; departments 5; 
 https://seng.hkust.edu.hk#main-content
 https://hkust.edu.hk/news
@@ -150,7 +165,7 @@ https://seng.hkust.edu.hk/prospective-students
 --------------------------------------------------------------------------------
 Site Search | HKUST CSE
 http://www.cse.ust.hk/admin/search
-2023-03-29 04:19:27, 1636
+2023-03-29 07:48:17, 1657
 site 3; search 3; hkust 5; cse 4; university 3; news 3; academic 1; departments 1; az 1; lifehkust 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -165,7 +180,7 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 Study at a World-class University in Hong Kong |HKUST
 https://hkust.edu.hk
-2023-03-29 04:19:28, 23571
+2022-03-23 16:25:57, 23576
 study 20; worldclass 7; university 56; hong 94; kong 79; hkust 72; skip 1; main 2; content 2; home 1; 
 https://hkust.edu.hk#main-content
 https://hkust.edu.hk/news/announcements
@@ -178,9 +193,24 @@ https://shaw-auditorium.hkust.edu.hk
 https://calendar.ust.hk
 https://hkust.edu.hk/visit
 --------------------------------------------------------------------------------
+Department of Computer Science and Engineering - HKUST
+http://www.cse.ust.hk
+2023-03-29 07:48:19, 7380
+department 3; computer 3; science 5; engineering 7; hkust 12; university 3; news 7; academic 1; departments 1; az 1; 
+https://hkust.edu.hk/news
+https://hkust.edu.hk/academics/list
+https://hkust.edu.hk/lifehkust
+https://library.hkust.edu.hk
+https://hkust.edu.hk/visit
+https://hkustcareers.hkust.edu.hk
+https://facultyprofiles.hkust.edu.hk
+https://hkust.edu.hk/about
+http://www.cse.ust.hk/admin/intranet
+https://seng.hkust.edu.hk
+--------------------------------------------------------------------------------
 Undergraduate Programs | HKUST CSE
 http://www.cse.ust.hk/ug
-2023-03-29 04:19:29, 5414
+2023-03-29 07:48:19, 5435
 undergraduate 10; programs 10; hkust 8; cse 7; university 3; news 4; academic 1; departments 2; az 1; lifehkust 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -195,7 +225,7 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 Postgraduate Programs | HKUST CSE
 http://www.cse.ust.hk/pg
-2023-03-29 04:19:29, 2894
+2023-03-29 07:48:19, 2915
 postgraduate 7; programs 8; hkust 7; cse 6; university 8; news 3; academic 1; departments 1; az 1; lifehkust 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -210,7 +240,7 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 Faculty Intranet | HKUST CSE
 http://www.cse.ust.hk/Restricted
-2023-03-29 04:19:29, 2359
+2023-03-29 07:48:20, 2380
 faculty 7; intranet 5; hkust 8; cse 11; university 3; news 3; academic 1; departments 1; az 1; lifehkust 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -225,7 +255,7 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 Alumni | HKUST CSE
 http://www.cse.ust.hk/admin/people/alumni
-2023-03-29 04:19:29, 2175
+2023-03-29 07:48:20, 2196
 alumni 9; hkust 6; cse 6; university 4; news 3; academic 1; departments 1; az 1; lifehkust 1; library 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -240,7 +270,7 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 Job Openings | HKUST CSE
 http://www.cse.ust.hk/admin/recruitment
-2023-03-29 04:19:29, 1901
+2023-03-29 07:48:20, 1922
 job 6; openings 5; hkust 5; cse 4; university 3; news 3; academic 1; departments 1; az 1; lifehkust 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -255,7 +285,7 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 Information for Employers & Industry Partners | HKUST CSE
 http://www.cse.ust.hk/admin/industry_collaboration
-2023-03-29 04:19:30, 1872
+2023-03-29 07:48:20, 1893
 information 6; employers 6; industry 5; partners 5; hkust 5; cse 4; university 3; news 3; academic 1; departments 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -270,7 +300,7 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 Welcome from Head of Department | HKUST CSE
 http://www.cse.ust.hk/admin/welcome
-2023-03-29 04:19:30, 4817
+2023-03-29 07:48:20, 4838
 welcome 7; head 5; department 12; hkust 9; cse 8; university 4; news 3; academic 1; departments 1; az 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -285,7 +315,7 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 Mission and Vision | HKUST CSE
 http://www.cse.ust.hk/admin/mission
-2023-03-29 04:19:30, 4767
+2023-03-29 07:48:20, 4788
 mission 6; vision 6; hkust 5; cse 4; university 3; news 3; academic 3; departments 1; az 1; lifehkust 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -300,7 +330,7 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 About CSE | HKUST CSE
 http://www.cse.ust.hk/admin/about
-2023-03-29 04:19:30, 3954
+2023-03-29 07:48:21, 3975
 cse 7; hkust 6; university 4; news 3; academic 1; departments 2; az 1; lifehkust 1; library 1; map 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -315,7 +345,7 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 Fast Facts | HKUST CSE
 http://www.cse.ust.hk/admin/factsheet
-2023-03-29 04:19:30, 3683
+2023-03-29 07:48:21, 3704
 fast 5; hkust 5; cse 4; university 7; news 3; academic 1; departments 2; az 1; lifehkust 1; library 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -330,7 +360,7 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 News | HKUST CSE
 http://www.cse.ust.hk/News
-2023-03-29 04:19:31, 8747
+2023-03-29 07:48:21, 8769
 news 8; hkust 11; cse 16; university 3; academic 3; departments 1; az 1; lifehkust 1; library 1; map 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -345,7 +375,7 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 Contact Us | HKUST CSE
 http://www.cse.ust.hk/admin/contact
-2023-03-29 04:19:31, 1957
+2023-03-29 07:48:21, 1978
 contact 7; hkust 6; cse 5; university 4; news 3; academic 1; departments 1; az 1; lifehkust 1; library 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -360,7 +390,7 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 Faculty | HKUST CSE
 http://www.cse.ust.hk/admin/people/faculty
-2023-03-29 04:19:31, 15490
+2023-03-29 07:48:21, 15511
 faculty 9; hkust 5; cse 5; university 3; news 3; academic 1; departments 1; az 1; lifehkust 1; library 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -375,7 +405,7 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 Staff | HKUST CSE
 http://www.cse.ust.hk/admin/people/staff
-2023-03-29 04:19:31, 3632
+2023-03-29 07:48:22, 3653
 staff 8; hkust 5; cse 4; university 3; news 3; academic 2; departments 1; az 1; lifehkust 1; library 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -390,7 +420,7 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 Postgraduate Students | HKUST CSE
 http://www.cse.ust.hk/admin/people/pg
-2023-03-29 04:19:31, 3251
+2023-03-29 07:48:22, 3272
 postgraduate 9; students 5; hkust 5; cse 4; university 3; news 3; academic 1; departments 1; az 1; lifehkust 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
@@ -405,38 +435,8 @@ https://seng.hkust.edu.hk
 --------------------------------------------------------------------------------
 Research Areas | HKUST CSE
 http://www.cse.ust.hk/pg/research/areas
-2023-03-29 04:19:32, 9458
+2023-03-29 07:48:22, 9479
 research 23; hkust 5; cse 4; university 3; news 3; academic 1; departments 1; az 1; lifehkust 1; library 1; 
-https://hkust.edu.hk/news
-https://hkust.edu.hk/academics/list
-https://hkust.edu.hk/lifehkust
-https://library.hkust.edu.hk
-https://hkust.edu.hk/visit
-https://hkustcareers.hkust.edu.hk
-https://facultyprofiles.hkust.edu.hk
-https://hkust.edu.hk/about
-http://www.cse.ust.hk/admin/intranet
-https://seng.hkust.edu.hk
---------------------------------------------------------------------------------
-Research Labs & Centers | HKUST CSE
-http://www.cse.ust.hk/pg/research/labs
-2023-03-29 04:19:32, 1908
-research 12; labs 5; centers 5; hkust 5; cse 4; university 3; news 3; academic 1; departments 1; az 1; 
-https://hkust.edu.hk/news
-https://hkust.edu.hk/academics/list
-https://hkust.edu.hk/lifehkust
-https://library.hkust.edu.hk
-https://hkust.edu.hk/visit
-https://hkustcareers.hkust.edu.hk
-https://facultyprofiles.hkust.edu.hk
-https://hkust.edu.hk/about
-http://www.cse.ust.hk/admin/intranet
-https://seng.hkust.edu.hk
---------------------------------------------------------------------------------
-Research Projects | HKUST CSE
-http://www.cse.ust.hk/pg/research/projects
-2023-03-29 04:19:32, 4104
-research 11; projects 5; hkust 5; cse 4; university 3; news 3; academic 1; departments 1; az 1; lifehkust 1; 
 https://hkust.edu.hk/news
 https://hkust.edu.hk/academics/list
 https://hkust.edu.hk/lifehkust

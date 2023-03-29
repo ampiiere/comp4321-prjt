@@ -4,14 +4,15 @@ import requests
 from nltk.tokenize import WhitespaceTokenizer
 import queue
 import re
+import os
 from dateutil import parser
 from datetime import datetime
-from porter import porter
+from tools.porter import porter
 from urllib.parse import urljoin
 import urllib3
 
-ORIGIN_URL = "http://www.cse.ust.hk"
-MAX_PAGE = 30
+ORIGIN_URL = "http://www.cse.ust.hk/" # change origin site here
+MAX_PAGE = 30 # change max page here
 
 parentID_childID = dict() # {parentID: [childID,c2]}
 pageID_url = dict() # {pageID: url}
@@ -19,8 +20,8 @@ url_pageID = dict() # {url: pageID}
 forwardidx = dict() # {pageID: [(w1,f1), [w1,f2], [w3,f3]], pageID:[]...}
 inverseidx = dict() # {word1: [(page1ID, freq1),(page2ID, freq2)]}
 wordID_word = dict() # {wordID: word}
-word_wordID = dict()
-pageID_elem = dict() # {pageID: [title, mod date, size]}
+word_wordID = dict() 
+pageID_elem = dict() # {pageID: [title, mod date,index date, size]}
 
 q = queue.Queue()
 stop_words = set([line.rstrip('\n') for line in open('./tools/stopwords.txt')])
@@ -32,6 +33,8 @@ def index():
     crawl(ORIGIN_URL, q)
     print("[END] End crawl, saving to database...")
 
+    if os.path.isfile("./db/indexdb.sqlite"):
+        os.remove("./db/indexdb.sqlite")
     db=SqliteDict("./db/indexdb.sqlite")
     db['parentID_childID']=parentID_childID
     db['pageID_url']= pageID_url
@@ -142,7 +145,8 @@ def mod_cleanup(pageID):
         inverseidx[word_id].remove((pageID, word[1]))
        
     forwardidx[pageID].clear() 
-    parentID_childID[pageID].clear() 
+    parentID_childID[pageID].clear()
+    pageID_elem[pageID].clear()
 
 
 def crawl(url,q):
@@ -164,20 +168,19 @@ def crawl(url,q):
     try:
         if ".pdf" in url:
             raise Exception(f"[ERROR] {url}: Page is pdf, skipping. ")
-        
         try:
             response = requests.get(url)
         except (requests.exceptions.SSLError, urllib3.exceptions.SSLError):
             raise Exception(f"[ERROR] {url}: Error loading webpage, skipping. ")
-            
-        print(f"[LOG] {len(forwardidx)}: {url}")
+        print(f"[LOG] {len(forwardidx)+1}: {url}")
+        
         headers = response.headers # header file
         soup = BeautifulSoup(response.text, 'html.parser')
         
         if len(soup.text) > 500000:
             raise Exception(f"[ERROR] {url}: Page too large, skipping.")
         
-        # find last modified date from header
+        # find last modified date from header, or from "last update" comment present in some HKUST CSE site's htmls
         try: 
             last_mod = headers['Last-Modified']
         except KeyError:
@@ -187,35 +190,31 @@ def crawl(url,q):
             except:
                 last_mod = headers['Date']
         
-        last_mod = parser.parse(last_mod).replace(tzinfo=None) # remove consideration for timezone
+        last_mod = parser.parse(last_mod).replace(tzinfo=None) # remove consideration for timezone, convert to datetime obj
         
-        # if current page is already indexed, and has not been modified since the indexing; skip and move to next in the queue
-        if url in forwardidx.keys():
-            index_mod = parser.parse(pageID_elem[url_pageID[url]][1]).replace(tzinfo=None)
-            if last_mod <= index_mod:  
-                try: 
-                    new_url = q.get()
-                    crawl(new_url, q)
-                except queue.Empty:
-                    return
-            else: 
-                mod_cleanup(pageID) # if page is alreday indexed but needs updating, clean up old index
-                
-        # Assign pageID
-        # if url is in url_pageID index, get old page_id, else index new url
+        # Assign pageID, then check if page has been indexed before
         if url in url_pageID.keys():
             pageID = url_pageID[url]
+            if pageID in forwardidx.keys():
+                index_mod = parser.parse(pageID_elem[url_pageID[url]][2]).replace(tzinfo=None) # get our last index date
+                if last_mod <= index_mod: # mod date is before index date, skip page
+                    try: 
+                        new_url = q.get()
+                        crawl(new_url, q)
+                    except queue.Empty:
+                        return
+                else: 
+                    mod_cleanup(pageID) # if page is alreday indexed but needs updating, clean up old index
         else:
             pageID = len(url_pageID)
             url_pageID[url] = pageID
             pageID_url[pageID] = url
         
-        
         # find page size from headers/length of page text
         try:
             page_size = headers['Content-Length']
         except KeyError:
-            page_size = len(soup.text.strip())
+            page_size = len(soup.text)
 
         # Tokenize text
         page_title = soup.find("title").text
@@ -223,14 +222,14 @@ def crawl(url,q):
         
         body_tokens = preprocess_text(page_text)
         title_tokens= preprocess_text(page_title)
-        page_tokens = body_tokens + title_tokens
+        page_tokens = body_tokens + title_tokens 
         
         # Index words into forward,inverse idx and wordiD_word, word_wordID
         page_dict = count_word_freq(page_tokens)
         index_words(page_dict, pageID)
         
-        # Index page into page_elem
-        pageID_elem[pageID] = [page_title, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), page_size] 
+        # Index page into page_elem: title, mod date, index date, size
+        pageID_elem[pageID] = [page_title, last_mod.strftime("%Y-%m-%d %H:%M:%S"), datetime.now().strftime("%Y-%m-%d %H:%M:%S"), page_size] 
 
         # Extract all children links
         child_urls = soup.find_all('a', href=True)
