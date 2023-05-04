@@ -12,8 +12,8 @@
 - Using pip, install packages (into virtual env). 
 - `pip install sqlitedict bs4 requests nltk python-dateutil`
 
-#### 3. Run crawl.py to crawl page
-- `python crawl_output.py`
+#### 3. Run crawler.py to crawl page
+- `python crawler.py`
 
 #### 4. Run test.py to print results from database
 - `python test.py`

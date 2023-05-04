@@ -8,6 +8,7 @@ import os
 from dateutil import parser
 from datetime import datetime
 from tools.porter import porter
+from tools.ngrams import ngrams_proccess
 from urllib.parse import urljoin
 import urllib3
 
@@ -18,10 +19,17 @@ parentID_childID = dict() # {parentID: [childID,c2]}
 pageID_url = dict() # {pageID: url}
 url_pageID = dict() # {url: pageID}
 forwardidx = dict() # {pageID: [(w1,f1), [w1,f2], [w3,f3]], pageID:[]...}
-inverseidx = dict() # {word1: [(page1ID, freq1),(page2ID, freq2)]}
+inverseidx = dict() # {word1: [(page1ID, freq1, tfidf),(page2ID, freq2, tfidf)]}
 wordID_word = dict() # {wordID: word}
 word_wordID = dict() 
-pageID_elem = dict() # {pageID: [title, mod date,index date, size]}
+pageID_elem = dict() # {pageID: [title , mod date,index date, size]}
+
+title_titleID = dict() # {titleword: titlewordID}
+titleID_title = dict() # {titlewordID: titleword}
+inversetitleidx = dict() # {word1: [(page1ID, freq1,tfidf),(page2ID, freq2, tfidf)]}
+forwardtitleidx = dict() # {pageID: [(w1,f1), [w1,f2], [w3,f3]], pageID:[]...}
+# TODO implement the title indexes!
+# TODO add term weights to the inverse index
 
 q = queue.Queue()
 stop_words = set([line.rstrip('\n') for line in open('./tools/stopwords.txt')])
@@ -33,8 +41,10 @@ def index():
     crawl(ORIGIN_URL, q)
     print("[END] End crawl, saving to database...")
 
+    # remove previous db if exist
     if os.path.isfile("./db/indexdb.sqlite"):
         os.remove("./db/indexdb.sqlite")
+
     db=SqliteDict("./db/indexdb.sqlite")
     db['parentID_childID']=parentID_childID
     db['pageID_url']= pageID_url
@@ -44,6 +54,10 @@ def index():
     db['wordID_word'] = wordID_word
     db['word_wordID'] = word_wordID
     db['pageID_elem'] = pageID_elem
+    db['title_titleID']= title_titleID 
+    db['titleID_title']= titleID_title 
+    db['inversetitleidx']= inversetitleidx 
+    db['forwardtitleidx'] = forwardtitleidx 
     db.commit()
     db.close()
     print("[END] Finished Saving.\n")
@@ -58,19 +72,22 @@ def preprocess_text(text):
         List[str]: List of word tokens
     """
     tokens = WhitespaceTokenizer().tokenize(text)  # tokenize words 
-    
-    # span_obj = WhitespaceTokenizer().span_tokenize(text)
-    # spans = [span for span in span_obj]
-    
     tokens = [word.lower() for word in tokens] # lower case
     tokens = [re.sub(r"[^\s\w\d]", '', c) for c in tokens] # remove punctuation
-    # tokens = [re.sub(r"\b\d+\b", "", c) for c in tokens]
-    tokens=['' if c in stop_words else c for c in tokens] # remove stop words
+    tokens = [i for i in tokens if i] # remove empty strings
+
+    tokens=[porter(c) for c in tokens] # porter    
+
+    # get bi and tri grams
+    bigram_tokens, trigram_tokens = ngrams_proccess(tokens)
+    uni_tokens=['' if c in stop_words else c for c in tokens] # remove stop words from unigram
+    uni_tokens=list(filter(None, uni_tokens)) # remove duplicates
     
-    tokens=list(filter(None, tokens)) # remove duplicates
-    tokens=[porter(c) for c in tokens] #TODO PORTER
+    bigram_tokens = list(filter(None, bigram_tokens))
+    trigram_tokens = list(filter(None, trigram_tokens))
     
-    return tokens
+    final_tokens = uni_tokens+bigram_tokens+trigram_tokens
+    return final_tokens
 
 
 def count_word_freq(tokenlist):
@@ -82,15 +99,37 @@ def count_word_freq(tokenlist):
     Returns:
         dict(): dictionary with (word, word frequency) key value paris
     """
-    page_dict = dict()
+    wordfreq_dict = dict()
     for token in tokenlist:
-        if page_dict.get(token):
-            page_dict[token] += 1
+        if wordfreq_dict.get(token):
+            wordfreq_dict[token] += 1
         else:
-            page_dict[token] = 1
+            wordfreq_dict[token] = 1
+    return wordfreq_dict # {w1: 4, w2:5 }
 
-    return page_dict
 
+def index_title_words(title_dict, pageID):
+    """takes title dict and indexes words in title into title_titleID,titleID_title, inversetitleidx, forwardtitleidx
+
+    Args:
+        title_dict (dict): word frequency dict containing word: frequency pairs of title from current page {word1: freq1, }
+        titleID (int): TitleID, (hopefully) same as PageID
+    """
+    forwardtitleidx[pageID] = []
+    for word,freq in title_dict.items():
+        if word not in title_titleID.keys():
+            word_id = len(title_titleID)
+            title_titleID[word] = word_id
+            titleID_title[word_id] = word
+        elif word in title_titleID.keys():
+            word_id = title_titleID[word]
+        
+        if word_id not in inversetitleidx.keys(): # if wordid is not in inverse, add new
+            inversetitleidx[word_id] = [[pageID, freq]] 
+        elif word_id in inversetitleidx.keys(): # if wordid is in inverse, append the doc to the word row
+            inversetitleidx[word_id].append([pageID, freq])
+            
+        forwardtitleidx[pageID].append([word_id, freq]) # add [w1, f1] to the doc row
 
 def index_words(page_dict, pageID):
     """indexing words in page into word_wordID,wordID_word, inverseidx, forwardidx
@@ -109,11 +148,11 @@ def index_words(page_dict, pageID):
             word_id = word_wordID[word]
         
         if word_id not in inverseidx.keys(): # add new wordid to inverseidx if new
-            inverseidx[word_id] = [(pageID, freq)]
+            inverseidx[word_id] = [[pageID, freq]]
         elif word_id in inverseidx.keys(): # append record to wordid entry if not new
-            inverseidx[word_id].append((pageID, freq))
+            inverseidx[word_id].append([pageID, freq])
     
-        forwardidx[pageID].append((word_id,freq)) # adding (word, frequency) to page's foward index entry
+        forwardidx[pageID].append([word_id,freq]) # adding (word, frequency) to page's foward index entry
 
 def indexnq_links(child_links, pageID):
     """index links in parentID_childID, url_pageID, pageID_url; then queue child links
@@ -140,14 +179,19 @@ def mod_cleanup(pageID):
     Args:
         pageID (int): pageID of page needed to clean up
     """
+    # clean up inverse idx
     for word in forwardidx[pageID]: # remove (pageid, freq) from each word of page in inverseidx
         word_id = word[0]
-        inverseidx[word_id].remove((pageID, word[1]))
-       
+        inverseidx[word_id].remove([pageID, word[1]])
+    
+    for word in forwardtitleidx[pageID]: # using forwardtitle[w1, f1] idx to remove all words from page's title from inversetitleidx
+        word_id = word[0] # get word ID
+        inversetitleidx[word_id].remove([pageID, word[1]]) # remove [pageID, wordID]
+    
     forwardidx[pageID].clear() 
+    forwardtitleidx[pageID].clear()
     parentID_childID[pageID].clear()
     pageID_elem[pageID].clear()
-
 
 def crawl(url,q):
     """Main function
@@ -175,7 +219,10 @@ def crawl(url,q):
         print(f"[LOG] {len(forwardidx)+1}: {url}")
         
         headers = response.headers # header file
-        soup = BeautifulSoup(response.text, 'html.parser')
+        try:
+            soup = BeautifulSoup(response.text, 'html.parser')
+        except:
+            raise Exception(f"[ERROR] {url}: Page doesn't have text, skipping.")
         
         if len(soup.text) > 500000:
             raise Exception(f"[ERROR] {url}: Page too large, skipping.")
@@ -192,23 +239,25 @@ def crawl(url,q):
         
         last_mod = parser.parse(last_mod).replace(tzinfo=None) # remove consideration for timezone, convert to datetime obj
         
-        # Assign pageID, then check if page has been indexed before
-        if url in url_pageID.keys():
+        # Assign pageID, then check if page has been indexed before (cuz url could be child link -> not indexed)
+        if url in url_pageID.keys(): 
             pageID = url_pageID[url]
-            if pageID in forwardidx.keys():
+    
+            if pageID in forwardidx.keys(): # check if indexed, if not, continue indexing
                 index_mod = parser.parse(pageID_elem[url_pageID[url]][2]).replace(tzinfo=None) # get our last index date
-                if last_mod <= index_mod: # mod date is before index date, skip page
+                if last_mod <= index_mod: # check if mod date is before index date, if yes, skip page
                     try: 
                         new_url = q.get()
                         crawl(new_url, q)
                     except queue.Empty:
                         return
-                else: 
-                    mod_cleanup(pageID) # if page is alreday indexed but needs updating, clean up old index
-        else:
+                else: # if page is alreday indexed but needs updating, clean up old index, then continue indexing
+                    mod_cleanup(pageID) 
+        else: # if page is new, create new page ID and title ID
             pageID = len(url_pageID)
             url_pageID[url] = pageID
             pageID_url[pageID] = url
+            
         
         # find page size from headers/length of page text
         try:
@@ -216,17 +265,22 @@ def crawl(url,q):
         except KeyError:
             page_size = len(soup.text)
 
-        # Tokenize text
+        # Tokenize text and title
         page_title = soup.find("title").text
         page_text = soup.text
-        
         body_tokens = preprocess_text(page_text)
         title_tokens= preprocess_text(page_title)
-        page_tokens = body_tokens + title_tokens 
         
-        # Index words into forward,inverse idx and wordiD_word, word_wordID
-        page_dict = count_word_freq(page_tokens)
-        index_words(page_dict, pageID)
+        
+        
+        # Index words from body into forward,inverse idx and wordiD_word, word_wordID
+        body_dict = count_word_freq(body_tokens) # {w1: 4, w2:5 }
+        index_words(body_dict, pageID)
+        
+        # Index words from title into forwardtitle,inverse title idx and titleID_title, title_titleID
+        title_dict = count_word_freq(title_tokens)  # {w1: 4, w2:5 }
+        index_title_words(title_dict, pageID)
+        
         
         # Index page into page_elem: title, mod date, index date, size
         pageID_elem[pageID] = [page_title, last_mod.strftime("%Y-%m-%d %H:%M:%S"), datetime.now().strftime("%Y-%m-%d %H:%M:%S"), page_size] 
@@ -243,7 +297,7 @@ def crawl(url,q):
         indexnq_links(child_links, pageID)
     
     except Exception as e:
-        print(e)
+        print(f"[ERROR] {url}: {e}, skipping page")
         try:
             new_url = q.get()
             crawl(new_url, q)
@@ -259,9 +313,10 @@ def crawl(url,q):
     except queue.Empty:
         return
     
-    
 if __name__ == '__main__':
     index()
+    # text = "I wanted to go buy some soup, but I instead stumbled upon A prehistoric Ancient Rome Era architecture!"
+    # print(preprocess_text(text))
     
     
     
