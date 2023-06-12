@@ -1,0 +1,38 @@
+{% extends 'searchengine/base.html' %}
+
+{% block title%} <title> Search Engine: Results</title> {%endblock%}
+
+{% block content%}
+<div class="container">
+    <div class="page-header">
+    <h1>Results Page</h1>
+    <p> Showing resulits for query: {{query_before}}</p>
+    </div>
+</div>
+
+<div class="container">
+    {% for rs in query_results %}
+    <div class="row">
+        <div class="col-md-3">Score: {{rs.0}}</div>
+        <div class="col-md-9">
+            <a href="{{rs.2}}"> {{rs.1}}</a>
+            <br>
+            <a href="{{rs.2}}">{{rs.2}}</a>
+            <div>Last modification Date: {{rs.3}}</div>
+            <div>Size: {{rs.4}}</div>
+            <div>{{rs.5}}</div>
+            <div>Children: </div>
+            {%for child in rs.6%}
+                <div>{{child}}</div>
+            {%endfor%}
+            <div> Parents: </div>
+            {%for parent in rs.7%}
+                <div>{{parent}}</div>
+            {%endfor%}
+        </div>
+    </div>
+    <br>
+    {%endfor%}
+</div>
+
+{% endblock %}

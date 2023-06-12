@@ -1,0 +1,23 @@
+{% extends 'searchengine/base.html' %}
+
+{% block title%} <title> Search Engine: Homepage</title> {%endblock%}
+
+{% block content%}
+
+<div class="col-lg-12 text-center mt-5">
+    <h2>Search Engine: HomePage</h2> 
+    </div>
+
+<div class="col-md-4 offset-md-4 mt-5 border border-success pt-3">
+    <div class="input-group mb-3">
+        
+        <form method = "get" action="/result">
+            <label for="query"> Query:</label>
+            <input class="form-control" id="query" type="text" name="query" value="{{query}}" size="100">
+            <input type="submit" value="Search!">
+        </form>
+    </div>
+</div>
+
+
+{% endblock %}

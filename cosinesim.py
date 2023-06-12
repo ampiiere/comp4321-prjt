@@ -4,13 +4,14 @@ from nltk.tokenize import WhitespaceTokenizer
 from tools.ngrams import ngrams_proccess
 import re
 from tools.porter import porter
+from operator import itemgetter
 
 
 stop_words = set([line.rstrip('\n') for line in open('./tools/stopwords.txt')])
 db=SqliteDict("./db/indexdb.sqlite")
 
-forwardidx = db['forwardidx'] # {pageID: [(w1,f1), [w1,f2], [w3,f3]], pageID:[]...}
-inverseidx = db['inverseidx'] # {word1: [[doc1, freq], [doc2, freq2]]}
+forwardidx = db['forwardidx'] # {pageID: [(w1,f1, tfidf), [w1,f2, tfidf], [w3,f3]], pageID:[]...}
+inverseidx = db['inverseidx'] # {word1: [[doc1, freq, tfidf], [doc2, freq2, tfidf]]}
 inversetitleidx = db['inversetitleidx'] 
 forwardtitleidx = db['forwardtitleidx'] 
 wordID_word = db["wordID_word"]
@@ -19,8 +20,22 @@ title_titleID = db["title_titleID"] # {titleword: titlewordID}
 titleID_title = db["titleID_title"] # {titlewordID: titleword}
 bodynorm = db['bodynorm'] # {pageid: norm}
 titlenorm = db['titlenorm']
+pageID_elem = db['pageID_elem'] # {pageID: [title , mod date,index date, size]}
+pageID_url = db['pageID_url']
+parentID_childID = db['parentID_childID']
+childID_parentID=db['childID_parentID']
+
+
 
 def query_tfidf(tokens):
+    """calculates the tfidf of the query
+
+    Args:
+        tokens (List(str)): A list of strings containing the tokens of the query
+
+    Returns:
+        Dict: dictionary containing the frequency and tfidf of query, in this format {w1: [freq, tfidf]}
+    """
     # give tokens, output {w1: [freq, tfidf1], w2: [freq, idf2]}
     query_idx = {}
     for word in tokens: # transform word into wordID?
@@ -38,172 +53,227 @@ def query_tfidf(tokens):
     num_docs = len(forwardidx)
     for word, freq in query_idx.items(): # for everyword
         tfnorm = freq[0]/tfmax
+        log_df = 0
         
         if word in word_wordID:
             wordID = word_wordID[word]
             df = len(inverseidx[wordID])
+            log_df = math.log(1+(num_docs/df))
         else: # if word is not indexed
-            df = 0
+            log_df = 0
             
-        tfidf = (0.5+0.5*tfnorm)*math.log(1+num_docs/df)
+        tfidf = (0.5+0.5*tfnorm)*log_df
         query_idx[word].append(tfidf)
     
     return query_idx # {w1: [freq, tfidf]}
-                    
-def preprocess_text(text):
-    """preprocessing text in page into word tokens 
+
+def tokenize_clean(text):
+    """cleans and tokenizes the query string
 
     Args:
-        text (str): text in page
+        text (str): String of query
 
     Returns:
-        List[str]: List of word tokens
+        List(str): list of tokens cleaned 
     """
-    #TODO Phrase search for only words with "" !!!!!!!! Don't have to bigram the singular words. 
     tokens = WhitespaceTokenizer().tokenize(text)  # tokenize words 
-    
     tokens = [word.lower() for word in tokens] # lower case
     tokens = [re.sub(r"[^\s\w\d]", '', c) for c in tokens] # remove punctuation
     tokens = [i for i in tokens if i] # remove empty strings
+    tokens=[porter(c) for c in tokens] 
+    return tokens
+ 
+def preprocess_text(text):
+    """main function for preproccessing the query text
 
-    tokens=[porter(c) for c in tokens] # porter    
+    Args:
+        text (str): the query string
 
-    # get bi and tri grams
-    bigram_tokens, trigram_tokens = ngrams_proccess(tokens)
-    uni_tokens=['' if c in stop_words else c for c in tokens] # remove stop words from unigram
-    uni_tokens=list(filter(None, uni_tokens)) # remove duplicates
-    
-    bigram_tokens = list(filter(None, bigram_tokens))
-    trigram_tokens = list(filter(None, trigram_tokens))
-    
-    final_tokens = uni_tokens+bigram_tokens+trigram_tokens
-    return final_tokens
+    Returns:
+        List(str): List of unigram bigram and trigram tokens. 
+    """
+    phrases = re.findall("'(.*?)'", text) # ['Foo Bar', 'Another Value']
+    non_phrase = re.sub("'(.*?)'", '', text) # 'string without the phrases'
 
-def cosine_body_score(query_index, wordls, docid):
-    # query_index: {word:[freq, tfidf], word:[freq, tfidf]}
-    # wordls:  [[w1, tfidf], [w2, tfidf]]
-    body_norm = bodynorm[docid]
-    dot_prod = 0
-    query_norm = 0
+    # get non_phrase unigrams
+    non_phrase_tokens = tokenize_clean(non_phrase)
+    non_phrase_tokens=['' if c in stop_words else c for c in non_phrase_tokens] # remove stop words for unigram only
+    non_phrase_tokens = [i for i in non_phrase_tokens if i]
     
-    for qword, weight in query_index.items(): 
-        try: # if query word doesn't exist in doc's mathcing words, then skip query word.
-            qword_id = word_wordID[qword]
-        except:
+    # get bi and tri grams for phrases
+    phrase_tokens = []
+    for phrase in phrases: # phrase = []
+        p_tokens = tokenize_clean(phrase) # unigram for phrase
+        bi_phrase_tokens, tri_phrase_tokens = ngrams_proccess(p_tokens) # get bi-trigrams
+        uni_phrase_tokens = ['' if c in stop_words else c for c in p_tokens] # remove stopwords from unigram
+        uni_phrase_tokens = [i for i in uni_phrase_tokens if i]
+        phrase_tokens = phrase_tokens + uni_phrase_tokens + bi_phrase_tokens + tri_phrase_tokens
+    
+    return non_phrase_tokens+phrase_tokens
+
+
+def cosine_score_body(query_index, page_words, pageid, query_norm):
+    """calculates the cosine similarity body score between one page and query
+
+    Args:
+        query_index (Dict): dict of words in query with frequency and tfidf score{word:[freq, tfidf], word:[freq, tfidf]}
+        page_words (List(str)): list of wordsID, freq, tfidf of the page [[w1,freq,tfidf], [w1,freq,tfidf]]
+        pageid (int): ID of page
+        query_norm (int): normalization value of query 
+
+    Returns:
+        int: content/body cosine similarity score of page to query
+    """
+    try:
+        body_norm = bodynorm[pageid] # doc's norm
+    except: # if page has no body, score is 0
+        return 0
+    
+    dot_product = 0
+    
+    for word, weight in query_index.items():
+        if word in word_wordID: 
+            queryword_id = word_wordID[word]
+            queryword_weight = weight[1]
+            for pair in page_words:# [w1,freq,tfidf]
+                if pair[0] == queryword_id: # find matching word in page's words
+                    word_product = pair[2]*queryword_weight # dot product of word
+                    dot_product+=word_product
+
+        else: # skip word if word isn't even indexed
             continue
-        
-        # find query word in doc's list of matching words, if can't find, +0 for that word
-        for word in wordls:
-            if word[0] == qword_id: # term weight * query weight
-                dot_prod += word[1]*weight[1] 
+    try:
+        page_score = dot_product/(body_norm*query_norm)
+        # if pageid == 5 or pageid == 6:
+            # print(f"{body_norm, dot_product, page_score}")
+    except ZeroDivisionError:
+        page_score = 0
+    return page_score
 
-        query_norm += weight[0]**2
 
-    query_norm = math.sqrt(query_norm)
-    cosine_score = dot_prod/(body_norm*query_norm)
-    return cosine_score
-            
+def cosine_score_title(query_index, page_words, pageid, query_norm):
+    """calculates the cosine similarity title score between one page and query
+
+    Args:
+        query_index (Dict): dict of words in query with frequency and tfidf score{word:[freq, tfidf], word:[freq, tfidf]}
+        page_words (List(str)): list of wordsID, freq, tfidf of the page [[w1,freq,tfidf], [w1,freq,tfidf]]
+        pageid (int): ID of page
+        query_norm (int): normalization value of query 
+
+    Returns:
+        int: title cosine similarity score of page to query
+    """
+    try:
+        title_norm = titlenorm[pageid] # doc's norm
+    except: # page has no title, title score is 0
+        return 0
     
-def cosine_title_score(query_index, titlels, docid):
-    # query_index: {word:[freq, tfidf], word:[freq, tfidf]}
-    # wordls:  [[w1, tfidf], [w2, tfidf]]
-    title_norm = titlenorm[docid]
-    dot_prod = 0
-    query_norm = 0
-    
-    for qword, weight in query_index.items(): 
-        try: # if query word doesn't exist in doc's mathcing words, then skip query word.
-            qword_id = word_wordID[qword]
-        except:
+    dot_product = 0
+    for word, weight in query_index.items():
+        if word in title_titleID: # if que
+            queryword_id = title_titleID[word]
+            queryword_weight = weight[1]
+            for pair in page_words:# [w1,freq,tfidf]
+                if pair[0] == queryword_id: # find matching word in page's words
+                    word_product = pair[2]*queryword_weight # dot product of word
+                    dot_product+=word_product
+
+        else: # skip word if word isn't even indexed
             continue
-        
-        # find query word in doc's list of matching words, if can't find, +0 for that word
-        for word in titlels:
-            if word[0] == qword_id: # term weight * query weight
-                dot_prod += word[1]*weight[1] 
+    try:
+        page_score = dot_product/(title_norm*query_norm)
+    except ZeroDivisionError:
+        page_score = 0
+    return page_score
 
-        query_norm += weight[0]**2
 
-    query_norm = math.sqrt(query_norm)
-    cosine_score = dot_prod/(title_norm*query_norm)
-    return cosine_score
+def cosinesim_main(query):
+    """main cosine similarity function that calculates cosine similarity between all docs and query
 
-def cosine_main(query):
-    # clean query
+    Args:
+        query (str): String of query
+
+    Returns:
+        List(): List of docs, their cosine sim scores, and rank. [[docid, score, rank], [docid, score, rank]]
+    """
+    doc_score_title = {} # {docID: titlescore}
+    doc_score_body = {} # {docID: bodyscore}
+    doc_score_final = {} # {docID: score}
+    # final: [[docid, score], [docid, score], [docid, score]]
+    
     query_token = preprocess_text(query)
     query_index = query_tfidf(query_token) # {word:[freq, tfidf], word:[freq, tfidf]}
-    
-    sim_doc_body = {} # {docID: [[w1, tfidf], [w2, tfidf]]} only words in query
-    sim_doc_title = {} # {docID:[[w1, tfidf], [w2, tfidf]]}
-    doc_score_title = {} # {docID: score}
-    doc_score_body = {}
-    for word,weight in query_index.items():
-        if (word not in word_wordID) and (word not in title_titleID): # if query word is not indexed, skip 
-            continue
-        elif word not in word_wordID: # word not in content, cosine score of body is 0 for all docs
-            qwordID_title = title_titleID[word]
-            post_title_list = inversetitleidx[qwordID_title] # [[doc1, freq, tfidf], [doc1, freq, tfidf]]
-            
-        elif word not in title_titleID: # word not in title, cosine score of title is 0 for all docs
-            qwordID_body = word_wordID[word]
-            post_body_list = inverseidx[qwordID_body] # [[doc1, freq, tfidf], [doc1, freq, tfidf]]
+    query_norm = 0
+    for key, value in query_index.items():
+        query_norm+=value[1]**2
+    query_norm = math.sqrt(query_norm)
 
+    #body scores
+    for pageid, page_words in forwardidx.items():
+        doc_score_body[pageid] = cosine_score_body(query_index, page_words, pageid, query_norm)
+            
+    # title scores
+    for pageid, page_words in forwardtitleidx.items():
+        doc_score_title[pageid] = cosine_score_title(query_index, page_words, pageid, query_norm)
+
+    
+    # calculate final score
+    for pageid, wordls in forwardidx.items():
+        body_score = doc_score_body[pageid]
+        if pageid not in doc_score_title:
+            title_score = 0
         else:
-            qwordID_title = title_titleID[word]
-            qwordID_body = word_wordID[word]
-            post_title_list = inversetitleidx[qwordID_title]
-            post_body_list = inverseidx[qwordID_body]
-        
-        # storing match words in doc into sim doc
-        # post body list: [[doc1, freq, tfidf], [doc1, freq, tfidf]]
-        # simdoc -> doc:[[w1, tfidf], [w2, tfidf]]
-        for doc in post_body_list: 
-            if doc[0] in sim_doc_body: 
-                sim_doc_body[doc[0]].append([qwordID_body, doc[2]]) # docID: [[w1, tfidf]]
-            else:
-                sim_doc_body[doc[0]] = [[qwordID_body, doc[2]]]
+            title_score = doc_score_title[pageid]
+        final_score = (body_score+title_score*3)/4
+        doc_score_final[pageid] = final_score
+    
+    for pageid, wordls in forwardtitleidx.items():
+        if pageid not in doc_score_final:
+            body_score = 0
+            title_score = doc_score_title[pageid]
+            final_score = (body_score+title_score*3)/4
+            doc_score_final[pageid] = final_score
 
-        # sotring match words into doc into sim doc title
-        for doc in post_title_list: 
-            if doc[0] in sim_doc_title: 
-                sim_doc_title[doc[0]].append([qwordID_title, doc[2]]) # docID: [[w1, tfidf]]
-            else:
-                sim_doc_title[doc[0]] = [[qwordID_title, doc[2]]]
-                
-                
-    for docid, wordls in sim_doc_body.items(): # wordls -> [[w1, tfidf], [w2, tfidf]] matched words only
-        doc_score_body[docid] = cosine_body_score(query_index, wordls, docid) 
-        
-    for docid, titlels in sim_doc_title.items():
-        doc_score_title[docid] = cosine_title_score(query_index, titlels, docid)
+    rank_list = sorted(doc_score_final.items(), key=lambda x:x[1], reverse=True)[:50] # [('key', 'score')]
+    return rank_list # [[docid, score, rank], [docid, score, rank], [docid, score, rank]]
 
-    combine_score = {}
-    for docid, score in doc_score_body.items():
-        try: # catch error if doc has no title
-            comb_doc_score = (doc_score_title[docid]*2+score)/3 #TODO title weighs of 2
-            combine_score[docid] = comb_doc_score
-        except: 
-            comb_doc_score = score/3 # (0*3+body)/3
-            combine_score[docid] = comb_doc_score
-            
-    for docid, score in doc_score_title.items(): # no body, but has titles
-        if docid not in combine_score:
-            comb_doc_score = score*3/3 # (title*3+0)/3
-            combine_score[docid] = comb_doc_score
     
-    rank_list = list(combine_score.keys()) # [docid1, docid2]
-    rank_list = sorted(rank_list, key=combine_score.get, reverse=True) #Desc order, ranks doc id to score
-    
-    rank_compile = []
-    for idx, pageid in enumerate(rank_list): # [docid, score, rank]
-        rank_compile.append([pageid, combine_score[pageid], idx+1])
-    
-    return rank_compile
-    
-    
+def fetch_info(rank_list):
+    """Given the scores of docs to query and their pageID, we fetch the information of the page and send back to the webserver. 
+
+    Args:
+        rank_list (List()): List of page's pageID with their score and rank. 
+
+    Returns:
+        List(): not dict! as list of ranked pages in descending order with their information needed to display on the webpage. 
+    """
+# [[docid, score, rank], [docid, score, rank], [docid, score, rank]] to
+
+    rank_dict = []
+    for page in rank_list:
+        doc_id = page[0]
+        score = page[1]
+        page_title = pageID_elem[doc_id][0]
+        last_mod = pageID_elem[doc_id][1]
+        size = pageID_elem[doc_id][3]
+        page_url = pageID_url[doc_id]
+        words = sorted(forwardidx[doc_id], key=itemgetter(1), reverse=True)[:5] # sort by descending frequencies, and get first 5
+        final_words = '; '.join([f"{wordID_word[w[0]]} {w[1]}" for w in words])
+        try:
+            child_links = [pageID_url[id] for id in parentID_childID[doc_id]][:10]
+        except:
+            child_links = []
+        try:
+            parent_links = [pageID_url[id] for id in childID_parentID[doc_id]][:10]
+        except:
+            parent_links = []
+        
+        rank_dict.append([score, page_title, page_url, last_mod, size, final_words, child_links, parent_links])
+    return rank_dict
 
 if __name__ == '__main__':
-    rank = cosine_main("Hong kong university of science and technology")
-    print(rank)
+    save = cosinesim_main("Movies for kids")
+    fetched = fetch_info(save)
+    print(fetched[0])
 
     

@@ -159,10 +159,12 @@ def porter(word):
 
 
 if __name__ == '__main__':
-    word = 'unanimous'
-    print(porter(word))
-    ps = PorterStemmer()
-    print(ps.stem(word))
+    word = ['unanimous', 'suprisingly', 'unadulterated', 'given', 'university']
+    
+    for words in word: 
+        print(f"My stemmer: {porter(words)}")
+        ps = PorterStemmer()
+        print(f"nltk: {ps.stem(words)}")
 
             
 

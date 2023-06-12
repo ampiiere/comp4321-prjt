@@ -3,6 +3,7 @@ from sqlitedict import SqliteDict
 import requests
 from nltk.tokenize import WhitespaceTokenizer
 import queue
+from collections import deque
 import re
 import os
 from dateutil import parser
@@ -12,40 +13,74 @@ from tools.ngrams import ngrams_proccess
 from urllib.parse import urljoin
 import urllib3
 
-ORIGIN_URL = "http://www.cse.ust.hk/" # change origin site here
-MAX_PAGE = 30 # change max page here
+ORIGIN_URL = "https://www.cse.ust.hk/~kwtleung/COMP4321/testpage.htm" # change origin site here
+MAX_PAGE = 300 # change max page here
 
-parentID_childID = dict() # {parentID: [childID,c2]}
-pageID_url = dict() # {pageID: url}
-url_pageID = dict() # {url: pageID}
-forwardidx = dict() # {pageID: [(w1,f1), [w1,f2], [w3,f3]], pageID:[]...}
-inverseidx = dict() # {word1: [(page1ID, freq1, tfidf),(page2ID, freq2, tfidf)]}
-wordID_word = dict() # {wordID: word}
-word_wordID = dict() 
-pageID_elem = dict() # {pageID: [title , mod date,index date, size]}
-
-title_titleID = dict() # {titleword: titlewordID}
-titleID_title = dict() # {titlewordID: titleword}
-inversetitleidx = dict() # {word1: [(page1ID, freq1,tfidf),(page2ID, freq2, tfidf)]}
-forwardtitleidx = dict() # {pageID: [(w1,f1), [w1,f2], [w3,f3]], pageID:[]...}
-# TODO implement the title indexes!
-# TODO add term weights to the inverse index
-
+# files doesn't exist
 q = queue.Queue()
 stop_words = set([line.rstrip('\n') for line in open('./tools/stopwords.txt')])
 
-def index():
-    """calls main function, and saves filled dicts() into sqlite database"""
-    
-    print(f"\n[START] Begin crawling, Origin url: {ORIGIN_URL}")
-    crawl(ORIGIN_URL, q)
-    print("[END] End crawl, saving to database...")
-
-    # remove previous db if exist
-    if os.path.isfile("./db/indexdb.sqlite"):
-        os.remove("./db/indexdb.sqlite")
-
+indexed_before = 0
+if not os.path.isfile("./db/indexdb.sqlite"):
+    # if db doesn't exist,create new dictionaries. 
     db=SqliteDict("./db/indexdb.sqlite")
+    parentID_childID = dict() # {parentID: [childID,c2]}
+    childID_parentID = dict() # {childID: [parentID,p2]}
+    pageID_url = dict() # {pageID: url}
+    url_pageID = dict() # {url: pageID}
+    forwardidx = dict() # {pageID: [(w1,f1), [w1,f2], [w3,f3]], pageID:[]...}
+    inverseidx = dict() # {word1: [(page1ID, freq1, tfidf),(page2ID, freq2, tfidf)]}
+    wordID_word = dict() # {wordID: word}
+    word_wordID = dict() 
+    pageID_elem = dict() # {pageID: [title , mod date,index date, size]}
+
+    title_titleID = dict() # {titleword: titlewordID}
+    titleID_title = dict() # {titlewordID: titleword}
+    inversetitleidx = dict() # {word1: [(page1ID, freq1,tfidf),(page2ID, freq2, tfidf)]}
+    forwardtitleidx = dict() # {pageID: [(w1,f1), [w1,f2], [w3,f3]], pageID:[]...}
+else: 
+    # db exists, read from db
+    indexed_before = True
+    try:
+        # catch error if db exists, but doesnt have certian index
+        db=SqliteDict("./db/indexdb.sqlite")
+        parentID_childID=db['parentID_childID']
+        pageID_url=db['pageID_url']
+        url_pageID=db['url_pageID']
+        forwardidx=db['forwardidx']
+        inverseidx=db['inverseidx']
+        wordID_word=db['wordID_word']
+        word_wordID=db['word_wordID']
+        pageID_elem=db['pageID_elem']
+        title_titleID=db['title_titleID'] 
+        titleID_title=db['titleID_title'] 
+        inversetitleidx=db['inversetitleidx'] 
+        forwardtitleidx=db['forwardtitleidx']
+        childID_parentID=db['childID_parentID']
+    except:
+        print(f"[LOG] DB wasn't indexed correctly, creating new db!")
+        db=SqliteDict("./db/indexdb.sqlite")
+        parentID_childID = dict() 
+        childID_parentID = dict() 
+        pageID_url = dict() 
+        url_pageID = dict() 
+        forwardidx = dict() 
+        inverseidx = dict() 
+        wordID_word = dict() 
+        word_wordID = dict() 
+        pageID_elem = dict() 
+
+        title_titleID = dict() 
+        titleID_title = dict() 
+        inversetitleidx = dict()
+        forwardtitleidx = dict()
+
+def index():
+    depth = MAX_PAGE
+    print(f"\n[START] Begin crawling, Origin url: {ORIGIN_URL}")
+    crawl(ORIGIN_URL, q, indexed_before, depth)
+    print("[END] End crawl, saving to database...")
+    
     db['parentID_childID']=parentID_childID
     db['pageID_url']= pageID_url
     db['url_pageID'] = url_pageID
@@ -58,10 +93,12 @@ def index():
     db['titleID_title']= titleID_title 
     db['inversetitleidx']= inversetitleidx 
     db['forwardtitleidx'] = forwardtitleidx 
+    db['childID_parentID'] = childID_parentID
     db.commit()
     db.close()
-    print("[END] Finished Saving.\n")
-
+    print("[END] Finished Saving.")
+    print("[END] Next, calculate term weights by `python tfidf.py`\n")
+    
 def preprocess_text(text):
     """preprocessing text in page into word tokens 
 
@@ -75,19 +112,13 @@ def preprocess_text(text):
     tokens = [word.lower() for word in tokens] # lower case
     tokens = [re.sub(r"[^\s\w\d]", '', c) for c in tokens] # remove punctuation
     tokens = [i for i in tokens if i] # remove empty strings
-
     tokens=[porter(c) for c in tokens] # porter    
 
-    # get bi and tri grams
-    bigram_tokens, trigram_tokens = ngrams_proccess(tokens)
+    bigram_tokens, trigram_tokens = ngrams_proccess(tokens) # get bi-trigrams
     uni_tokens=['' if c in stop_words else c for c in tokens] # remove stop words from unigram
-    uni_tokens=list(filter(None, uni_tokens)) # remove duplicates
+    uni_tokens = [i for i in uni_tokens if i] # remove empty strings
     
-    bigram_tokens = list(filter(None, bigram_tokens))
-    trigram_tokens = list(filter(None, trigram_tokens))
-    
-    final_tokens = uni_tokens+bigram_tokens+trigram_tokens
-    return final_tokens
+    return uni_tokens+bigram_tokens+trigram_tokens
 
 
 def count_word_freq(tokenlist):
@@ -161,18 +192,31 @@ def indexnq_links(child_links, pageID):
         child_links (List): list contianing urls of child links
         pageID (int): pageID of parent page
     """
-    parentID_childID[pageID] = []
+    # child_links = list(set(child_links)) # remove duplicates
     for child_link in child_links:
-        if child_link not in url_pageID.keys(): # add url to url_pageID, pageID_url if not new
-            child_id = len(url_pageID)  
+        if child_link not in url_pageID.keys(): # haven't seen child link before
+            child_id = len(url_pageID)
             url_pageID[child_link] = child_id 
             pageID_url[child_id] = child_link
-        elif child_link in url_pageID.keys(): # fetch urlid if not new
-            child_id = url_pageID[child_link] 
-        
-        parentID_childID[pageID].append(child_id)  # add childurl id to parentID_childID 
-        q.put(child_link) # queue child link
+            childID_parentID[child_id] = [pageID] 
+        elif child_link in url_pageID.keys(): # have seen child link before
+            child_id = url_pageID[child_link]
+            if child_id not in childID_parentID:
+                childID_parentID[child_id] = [pageID]
+            else:
+                childID_parentID[child_id].append(pageID) 
+                
+        if pageID not in parentID_childID: #
+            parentID_childID[pageID] = [child_id]
+        else:
+            parentID_childID[pageID].append(child_id) 
 
+        if child_id not in forwardidx:
+            q.put(child_link) # queue child link
+
+    
+
+    
 def mod_cleanup(pageID):
     """index clean up if page has been modified
 
@@ -190,10 +234,16 @@ def mod_cleanup(pageID):
     
     forwardidx[pageID].clear() 
     forwardtitleidx[pageID].clear()
-    parentID_childID[pageID].clear()
     pageID_elem[pageID].clear()
+    for childid in parentID_childID[pageID]: # remove child to parent links
+        try:
+            childID_parentID[childid].remove(pageID)
+        except:
+            pass
+    parentID_childID[pageID].clear() 
+    
 
-def crawl(url,q):
+def crawl(url,q, indexed_before, depth):
     """Main function
 
     Args:
@@ -206,9 +256,14 @@ def crawl(url,q):
         Exception: if page is too large, skip page. 
 
     """
-    # if num of indexed pages > max pages, job done
-    if len(forwardidx) >= MAX_PAGE:
-        return 
+    
+    if not indexed_before: # stop when forwardidx reaches max length
+        if len(forwardidx) >= MAX_PAGE:
+            return
+    elif indexed_before:    # stop when reached max length recursion depth
+        if depth < 0:
+            return
+        
     try:
         if ".pdf" in url:
             raise Exception(f"[ERROR] {url}: Page is pdf, skipping. ")
@@ -216,49 +271,55 @@ def crawl(url,q):
             response = requests.get(url)
         except (requests.exceptions.SSLError, urllib3.exceptions.SSLError):
             raise Exception(f"[ERROR] {url}: Error loading webpage, skipping. ")
-        print(f"[LOG] {len(forwardidx)+1}: {url}")
-        
         headers = response.headers # header file
         try:
-            soup = BeautifulSoup(response.text, 'html.parser')
+            soup = BeautifulSoup(response.text, "html.parser")
         except:
             raise Exception(f"[ERROR] {url}: Page doesn't have text, skipping.")
         
         if len(soup.text) > 500000:
             raise Exception(f"[ERROR] {url}: Page too large, skipping.")
-        
-        # find last modified date from header, or from "last update" comment present in some HKUST CSE site's htmls
+
+        # find last modified date from header,
         try: 
             last_mod = headers['Last-Modified']
         except KeyError:
-            try:
-                cmnt_mod = soup.head.find(string=re.compile("last update"))
-                last_mod = re.split("last update", cmnt_mod)[1].strip()
-            except:
+            # try:
+            #     cmnt_mod = soup.head.find(string=re.compile("last update"))
+            #     last_mod = re.split("last update", cmnt_mod)[1].strip()
+            # except:
                 last_mod = headers['Date']
         
         last_mod = parser.parse(last_mod).replace(tzinfo=None) # remove consideration for timezone, convert to datetime obj
         
         # Assign pageID, then check if page has been indexed before (cuz url could be child link -> not indexed)
-        if url in url_pageID.keys(): 
+        if url in url_pageID.keys():
             pageID = url_pageID[url]
-    
-            if pageID in forwardidx.keys(): # check if indexed, if not, continue indexing
+            if pageID in forwardidx.keys(): # if indexed before
                 index_mod = parser.parse(pageID_elem[url_pageID[url]][2]).replace(tzinfo=None) # get our last index date
-                if last_mod <= index_mod: # check if mod date is before index date, if yes, skip page
+                print(f"[LOG] {pageID} {url}: Indexed before, last index date {index_mod}, last mod date {last_mod}")
+                
+                if (last_mod <= index_mod): # does indexed page need update?
+                    # doesn't need update, skip page
+                    if indexed_before: # if crawled before, get original child links to populate queue
+                        child_ls = [pageID_url[childid] for childid in parentID_childID[pageID]]
+                        for child_url in child_ls:
+                            q.put(child_url)
+                            
                     try: 
                         new_url = q.get()
-                        crawl(new_url, q)
+                        crawl(new_url, q, indexed_before, depth-1)
+                        return
                     except queue.Empty:
                         return
-                else: # if page is alreday indexed but needs updating, clean up old index, then continue indexing
-                    mod_cleanup(pageID) 
+                else: # needs update, clean up index, then continue index
+                    mod_cleanup(pageID)           
         else: # if page is new, create new page ID and title ID
             pageID = len(url_pageID)
             url_pageID[url] = pageID
             pageID_url[pageID] = url
             
-        
+        print(f"[LOG] {pageID}: {url}")
         # find page size from headers/length of page text
         try:
             page_size = headers['Content-Length']
@@ -267,11 +328,10 @@ def crawl(url,q):
 
         # Tokenize text and title
         page_title = soup.find("title").text
+
         page_text = soup.text
         body_tokens = preprocess_text(page_text)
         title_tokens= preprocess_text(page_title)
-        
-        
         
         # Index words from body into forward,inverse idx and wordiD_word, word_wordID
         body_dict = count_word_freq(body_tokens) # {w1: 4, w2:5 }
@@ -297,10 +357,10 @@ def crawl(url,q):
         indexnq_links(child_links, pageID)
     
     except Exception as e:
-        print(f"[ERROR] {url}: {e}, skipping page")
+        print(f"[ERROR] {pageID} {url}: {e}, skipping page")
         try:
             new_url = q.get()
-            crawl(new_url, q)
+            crawl(new_url, q, indexed_before, depth) # skipped page not cuz indexed before, page is never indexed, hence depth is same
             return
         except queue.Empty:
             return 
@@ -308,15 +368,14 @@ def crawl(url,q):
     # fetch new url from queue, and start new recursion loop with new url
     try:
         new_url = q.get()
-        crawl(new_url, q)
+        crawl(new_url, q, indexed_before, depth-1)
         return
     except queue.Empty:
         return
     
 if __name__ == '__main__':
     index()
-    # text = "I wanted to go buy some soup, but I instead stumbled upon A prehistoric Ancient Rome Era architecture!"
-    # print(preprocess_text(text))
+    
     
     
     

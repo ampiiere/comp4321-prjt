@@ -35,8 +35,8 @@ def ngrams_proccess(tokens):
     return (bi, tri)
     
 if __name__== '__main__':
-    text = "The hong kong university of science and technology is reknowed for it's infamously high anxiety count. "
+    text = "The hong kong university of science and technology is reknowed for it's high quality students"
     tokens = WhitespaceTokenizer().tokenize(text) # ['ha', 'he']
-    ngrams_proccess(tokens)
+    print(ngrams_proccess(tokens))
     
     

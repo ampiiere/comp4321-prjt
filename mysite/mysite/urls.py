@@ -19,5 +19,5 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls), # admin dashboard
-    path('search/', include('searchengine.urls')) # home path, send everything after '' to url page in app
+    path('', include('searchengine.urls')) # home path, send everything after '' to url page in app
 ]
