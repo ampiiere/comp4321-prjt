@@ -1,4 +1,5 @@
-## COMP4321 Prjt: Set up
+# COMP4321: Search Engines for Web and Enterprise Data Final project
+## Set up
 
 #### 1. Setup preferred Virtual env (optional)
 - Packages must be installed, loading them into a virtual env would make it easier to delete them later. 
@@ -25,7 +26,7 @@
 - `python manage.py runserver`
 - Search page is at: http://127.0.0.1:8000/
 
-## Project structure
+## Schema
 ![alt text](image.png)
 
 ## Overall Design
@@ -35,7 +36,10 @@ This project was done in Python 3.8.2. The application consists of mainly 3 part
 -	The second part of the retrieval function tokenizes and calculates query term weights, and calculates the cosine similarity between query term weights and the already calculated document term weights, then ranks them. 
 -	The web server that receives input query, sends the query to the retrieval function and displays results from the retrieval function. 
 
+ ====> **See Report for more details** <====
+
 ## Preview
 ![alt text](<Screenshot 2024-02-13 at 11.42.19 PM.png>)
+
 ![alt text](<Screenshot 2024-02-13 at 11.42.35 PM.png>)
 
