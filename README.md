@@ -1,4 +1,4 @@
-# COMP4321 Prjt: Set up
+## COMP4321 Prjt: Set up
 
 #### 1. Setup preferred Virtual env (optional)
 - Packages must be installed, loading them into a virtual env would make it easier to delete them later. 
@@ -15,16 +15,27 @@
 #### 3. Run crawler.py to crawl page
 - `python crawler.py`
 
-#### 4. Run test.py to print results from database
-- `python test.py`
-- See output results in spider_result.txt
+#### 4. Run tfidf.py to calculate document term weights
+- ‘python tfidf.py’
 
 #### 5. move into mysite dir
 - `cd mysite`
   
 #### 6. Runserver with Django
 - `python manage.py runserver`
-- Search page at http://127.0.0.1:8000/
+- Search page is at: http://127.0.0.1:8000/
 
+## Project structure
+![alt text](image.png)
 
+## Overall Design
+This project was done in Python 3.8.2. The application consists of mainly 3 parts. 
+-	The crawler and indexer, that recursively fetches webpages in a BFS manner, stores words, information and child links etc. and other information about the page into the indexes; 
+-	The first part of the retrieval function that does the calculation for the term weights in the document indexes
+-	The second part of the retrieval function tokenizes and calculates query term weights, and calculates the cosine similarity between query term weights and the already calculated document term weights, then ranks them. 
+-	The web server that receives input query, sends the query to the retrieval function and displays results from the retrieval function. 
+
+## Preview
+![alt text](<Screenshot 2024-02-13 at 11.42.19 PM.png>)
+![alt text](<Screenshot 2024-02-13 at 11.42.35 PM.png>)
 
