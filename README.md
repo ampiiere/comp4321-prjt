@@ -1,4 +1,13 @@
 # COMP4321: Search Engines for Web and Enterprise Data Final project
+
+This project was done in Python 3.8.2. The application consists of mainly 3 parts. 
+-	The crawler and indexer, that recursively fetches webpages in a BFS manner, stores words, information and child links etc. and other information about the page into the indexes; 
+-	The first part of the retrieval function that does the calculation for the term weights in the document indexes
+-	The second part of the retrieval function tokenizes and calculates query term weights, and calculates the cosine similarity between query term weights and the already calculated document term weights, then ranks them. 
+-	The web server that receives input query, sends the query to the retrieval function and displays results from the retrieval function. 
+
+ ====> **See Report for more details** <====
+
 ## Set up
 
 #### 1. Setup preferred Virtual env (optional)
@@ -28,15 +37,6 @@
 
 ## Schema
 ![alt text](image.png)
-
-## Overall Design
-This project was done in Python 3.8.2. The application consists of mainly 3 parts. 
--	The crawler and indexer, that recursively fetches webpages in a BFS manner, stores words, information and child links etc. and other information about the page into the indexes; 
--	The first part of the retrieval function that does the calculation for the term weights in the document indexes
--	The second part of the retrieval function tokenizes and calculates query term weights, and calculates the cosine similarity between query term weights and the already calculated document term weights, then ranks them. 
--	The web server that receives input query, sends the query to the retrieval function and displays results from the retrieval function. 
-
- ====> **See Report for more details** <====
 
 ## Preview
 ![alt text](<Screenshot 2024-02-13 at 11.42.19 PM.png>)
