@@ -6,6 +6,8 @@ This project was done in Python 3.8.2. The application consists of mainly 3 part
 -	The second part of the retrieval function tokenizes and calculates query term weights, and calculates the cosine similarity between query term weights and the already calculated document term weights, then ranks them. 
 -	The web server that receives input query, sends the query to the retrieval function and displays results from the retrieval function. 
 
+Notable packages used: Nltk, Django, sqlitedict, BeautifulSoup, bootstrap. 
+
  ====> **See Report for more details** <====
 
 ## Set up
